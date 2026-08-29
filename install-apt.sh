@@ -59,10 +59,19 @@ done
 
 # Install dependencies
 sudo apt update
-sudo apt install -y git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev hwdata libx11-dev libwayland-dev vulkan-headers wayland-protocols libxdamage-dev libxcomposite-dev libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils mangohud python3-evdev brightnessctl alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus
+sudo apt install -y git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev hwdata libx11-dev libwayland-dev vulkan-headers wayland-protocols libxdamage-dev libxcomposite-dev libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils python3-evdev brightnessctl alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus gcc g++ libvulkan-dev libgl-dev libegl-dev libgbm-dev libdrm-dev libsystemd-dev libyaml-cpp-dev libxnvctrl-dev libdbus-1-dev python3-mako
 
 # Define the name of the current directory
 CUR_DIR=$(pwd)
+
+# the version of mangohud in the APT repository is too old
+# the newest version needs to be compiled from source
+git clone --recurse-submodules https://github.com/flightlessmango/MangoHud.git
+cd MangoHud
+meson build
+ninja -C build install
+
+cd "$CUR_DIR"
 
 # keyd is not available in the APT repository
 # keyd needs to be compiled from source
