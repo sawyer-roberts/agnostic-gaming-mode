@@ -220,8 +220,6 @@ cd "$CUR_DIR"
 # Install files
 
 # Compile Gamescope
-# This will be replaced by an AUR installation
-# AUR currently does not allow new user creation due to bots
 git clone https://github.com/sawyer-roberts/agnostic-gamescope.git
 cd "$CUR_DIR/agnostic-gamescope/"
 git submodule update --init
