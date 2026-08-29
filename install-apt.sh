@@ -231,7 +231,7 @@ meson install -C build/ --skip-subprojects
 
 # Give Gamescope elevated system privileges
 if ! getcap /usr/local/bin/gamescope | grep -q "cap_sys_nice=eip"; then
-        sudo setcap 'cap_sys_nice=eip' /usr/local/bin/gamescope
+	sudo setcap 'cap_sys_nice=eip' /usr/local/bin/gamescope
 fi
 
 cd "$CUR_DIR"
