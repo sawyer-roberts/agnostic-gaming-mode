@@ -1,0 +1,17 @@
+[ids]
+*
+
+[main]
+# Audio and Brightness
+volumeup = command(/usr/local/bin/agnostic-gaming-mode/volume.sh up)
+volumedown = command(/usr/local/bin/agnostic-gaming-mode/volume.sh down)
+mute = command(/usr/local/bin/audio-override.sh mute)
+brightnessup = command(/usr/bin/brightnessctl set 5%+)
+brightnessdown = command(/usr/bin/brightnessctl set 5%-)
+
+[shift]
+esc = f15
+leftalt = f16
+rightalt = f16
+leftmeta = f17
+rightmeta = f17

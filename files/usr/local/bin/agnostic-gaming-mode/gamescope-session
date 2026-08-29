@@ -1,0 +1,59 @@
+#!/bin/bash
+echo $$ > /tmp/gamescope-session.pid
+
+mkdir -p "$HOME/.config/gamescope"
+export GAMESCOPE_MODE_SAVE_FILE="$HOME/.config/gamescope/modes.cfg"
+
+# Remove env file to purge any left-over variables
+# This file will be automatically re-created on start-up
+rm $HOME/.config/gamescope/gamescope-active.env
+
+export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS=0
+export vk_xwayland_wait_ready=false
+export STEAM_DISABLE_MANGOAPP_ATOM_WORKAROUND=1
+
+export STEAM_MULTIPLE_XWAYLANDS=1
+
+if [ -f /etc/gamescope-display.env ]; then
+    source /etc/gamescope-display.env
+fi
+
+MANGOAPP_OPT=""
+if command -v mangoapp &> /dev/null; then
+    MANGOAPP_OPT="--mangoapp"
+fi
+
+sudo modprobe -r v4l2loopback || true
+sudo modprobe v4l2loopback exclusive_caps=1 card_label="Screen-Recording-Gaming-Mode" video_nr=10 max_width=4096 max_height=4096
+
+# Enable keyd conf while in Gaming Mode
+sudo mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf 2>/dev/null
+sudo keyd reload
+
+# Start Screen Recording in background
+$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh &
+SCREEN_REC_PID=$!
+
+# Start the hardware injector in the background
+/usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py &
+INJECTOR_PID=$!
+
+# Kill Injector and Screen Recording then
+# restore v4l2loopback device to defaults
+trap 'kill $INJECTOR_PID $SCREEN_REC_PID 2>/dev/null; sudo modprobe -r v4l2loopback || true; sudo modprobe v4l2loopback' EXIT TERM INT HUP
+
+# Launch Gamescope
+gamescope --generate-drm-mode fixed -O "$GAMESCOPE_DISPLAY" -w "$GAMESCOPE_WIDTH" -h "$GAMESCOPE_HEIGHT" --adaptive-sync --force-grab-cursor -s 0.5 -f -e --xwayland-count 2 $MANGOAPP_OPT -- steam -steamdeck -steamos3
+
+# Clean up background processes when
+# exiting back to the desktop
+kill $INJECTOR_PID $SCREEN_REC_PID 2>/dev/null
+rm -f /tmp/gamescope-session.pid
+
+# Disable keyd conf when exiting Gaming Mode
+sudo mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled 2>/dev/null
+sudo keyd reload
+
+# Restore v4l2loopback device upon exit
+sudo modprobe -r v4l2loopback || true
+sudo modprobe v4l2loopback

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Gaming Mode
+Comment=Agnostic Gaming Mode
+Exec=/usr/local/bin/agnostic-gaming-mode/gamescope-session
+Type=Application
+DesktopNames=GamingMode

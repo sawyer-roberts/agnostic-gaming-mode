@@ -1,0 +1,9 @@
+[Unit]
+Description=Change Resolution and or Refresh Rate when changed in Steam in Gaming Mode
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/gamescope-display-modulation.sh
+
+[Install]
+WantedBy=default.target
