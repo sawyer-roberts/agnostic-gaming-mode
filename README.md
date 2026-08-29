@@ -23,3 +23,5 @@ cd agnostic-gaming-mode
 chmod 755 install-apt.sh
 ./install-apt.sh
 ```
+
+After Installation, Agnostic Gaming Mode will appear as a new session option on your log-in screen.
