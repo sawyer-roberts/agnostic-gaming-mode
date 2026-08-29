@@ -5,7 +5,7 @@ Agnostic Gaming Mode is designed to work on any flavor of CachyOS. Improved supp
 
 Online Installation:
 
-Download the newest version from Releases and run the install script
+Download the newest version from Releases and run the install script:
 ```
 chmod 755 install.sh
 ./install.sh

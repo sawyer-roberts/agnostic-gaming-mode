@@ -3,7 +3,7 @@ set -e
 
 # Prompt user with Warning before installation
 while true; do
-	echo -e "\nWarning:\n\nAgnostic Gaming Mode uses a custom version of Gamescope (Required for Gaming Mode).\nIf you already have Gamescope installed, please uninstall it before continuing."
+	echo -e "\nWarning:\n\nAgnostic Gaming Mode uses a custom version of Gamescope (Required for Gaming Mode).\nIf you already have Gamescope installed, please uninstall it before continuing.\nGamescope will still function normally in your regular Desktop Environment."
 	echo -e "\nType 'Y/y' to continue the installation.\nType 'C/c' to cancel the installation."
 	read -r continue_installation
 	
@@ -22,6 +22,8 @@ while true; do
 		
 		*)
 			echo -e "\nInvalid input. Please type 'Y/y' or 'C/c'."
+			
+			sleep 1
 			;;
 	
 	esac
@@ -29,7 +31,7 @@ done
 
 # Prompt user with Second Warning before installation
 while true; do
-	echo -e "\nWarning:\n\nAgnostic Gaming Mode is designed for single user setups.\nOnly the user that installed Agnostic Gaming Mode will be able to use it."
+	echo -e "\nWarning:\n\nAgnostic Gaming Mode is designed for single user setups.\nOnly the user that installed Agnostic Gaming Mode will be able to use it.\nThe installer can be run again as a different user."
 	echo -e "\nType 'U/u' to understand this warning.\nType 'C/c' to cancel the installation."
 	read -r understand_warning
 	
@@ -48,13 +50,28 @@ while true; do
 		
 		*)
 			echo -e "\nInvalid input. Please type 'U/u' or 'C/c'."
+			
+			sleep 1
 			;;
 	
 	esac
 done
 
 # Install dependencies
-sudo pacman -S --needed --noconfirm git meson ninja pkgconf cmake pipewire hwdata libx11 wayland vulkan-headers wayland-protocols libxdamage libxcomposite libxcursor libxxf86vm libxtst libxres libxmu libxkbcommon libcap sdl2 libavif lcms2 seatd libinput xorg-xwayland libxcb xcb-util-wm glslang luajit catch2 wireplumber libdisplay-info stb konsole gstreamer gst-plugins-base gst-plugins-good gst-plugin-pipewire v4l2loopback-dkms procps-ng v4l-utils mangohud python-evdev brightnessctl alsa-utils gawk keyd inotify-tools drm-info jq python-vdf
+sudo apt update
+sudo apt install -y git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev hwdata libx11-dev libwayland-dev vulkan-headers wayland-protocols libxdamage-dev libxcomposite-dev libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils mangohud python3-evdev brightnessctl alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus
+
+# Define the name of the current directory
+CUR_DIR=$(pwd)
+
+# keyd is not available in the APT repository
+# keyd needs to be compiled from source
+git clone https://github.com/rvaiya/keyd.git
+cd keyd
+make && sudo make install
+sudo systemctl enable --now keyd
+
+cd "$CUR_DIR"
 
 # Prompt user with option to install Decky Loader
 while true; do
@@ -78,6 +95,8 @@ while true; do
 		
 		*)
 			echo "Invalid input. Please type 'Y/y' or 'N/n'."
+			
+			sleep 1
 			;;
 	
 	esac
@@ -196,7 +215,6 @@ echo -e "\nConfiguration saved successfully!"
 
 sleep 1
 
-CUR_DIR=$(pwd)
 cd "$CUR_DIR"
 
 # Install files
@@ -263,6 +281,8 @@ while true; do
 		
 		*)
 			echo "Invalid input. Please type 'Y/y' or 'N/n'."
+			
+			sleep 1
 			;;
 	
 	esac
@@ -307,89 +327,89 @@ signed_appid = appid_32 - 0x100000000 if appid_32 > 0x7FFFFFFF else appid_32
 appid_str = str(appid_32)
 
 steam_paths = [
-        os.path.expanduser("~/.local/share/Steam/userdata"),
-        os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata")
+	os.path.expanduser("~/.local/share/Steam/userdata"),
+	os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata")
 ]
 
 userdata_dir = next((path for path in steam_paths if os.path.exists(path)), None)
 
 if userdata_dir:
-        for user_id in os.listdir(userdata_dir):
-                if not user_id.isdigit() or user_id == "0":
-                        continue
+	for user_id in os.listdir(userdata_dir):
+		if not user_id.isdigit() or user_id == "0":
+			continue
 
-                shortcuts_path = os.path.join(userdata_dir, user_id, "config", "shortcuts.vdf")
-                grid_dir = os.path.join(userdata_dir, user_id, "config", "grid")
+		shortcuts_path = os.path.join(userdata_dir, user_id, "config", "shortcuts.vdf")
+		grid_dir = os.path.join(userdata_dir, user_id, "config", "grid")
 
-                # Parse existing shortcuts
-                if os.path.exists(shortcuts_path):
-                        with open(shortcuts_path, 'rb') as f:
-                                data = vdf.binary_load(f)
-                else:
-                        data = {'shortcuts': {}}
+		# Parse existing shortcuts
+		if os.path.exists(shortcuts_path):
+			with open(shortcuts_path, 'rb') as f:
+				data = vdf.binary_load(f)
+		else:
+			data = {'shortcuts': {}}
 
-                shortcuts = data.get('shortcuts', {})
+		shortcuts = data.get('shortcuts', {})
 
-                # Find the existing 'Log Out' shortcut to overwrite, or calculate a new index
-                target_idx = None
-                for idx, s in shortcuts.items():
-                        if isinstance(s, dict) and s.get('AppName') == APP_NAME:
-                                target_idx = idx
-                                break
+		# Find the existing 'Log Out' shortcut to overwrite, or calculate a new index
+		target_idx = None
+		for idx, s in shortcuts.items():
+			if isinstance(s, dict) and s.get('AppName') == APP_NAME:
+				target_idx = idx
+				break
 
-                if target_idx is None:
-                        existing_indices = [int(k) for k in shortcuts.keys() if str(k).isdigit()]
-                        target_idx = str(max(existing_indices + [-1]) + 1)
+		if target_idx is None:
+			existing_indices = [int(k) for k in shortcuts.keys() if str(k).isdigit()]
+			target_idx = str(max(existing_indices + [-1]) + 1)
 
-                # Create Shortcut
-                shortcuts[target_idx] = {
-                        'appid': signed_appid,
-                        'AppName': APP_NAME,
-                        'Exe': quoted_exe,
-                        'StartDir': quoted_start,
-                        'icon': ICON if os.path.exists(ICON) else '',
-                        'ShortcutPath': '',
-                        'LaunchOptions': '',
-                        'IsHidden': 0,
-                        'AllowDesktopConfig': 1,
-                        'AllowOverlay': 1,
-                        'OpenVR': 0,
-                        'Devkit': 0,
-                        'DevkitGameID': '',
-                        'DevkitOverrideAppID': 0,
-                        'LastPlayTime': 0,
-                        'FlatpakAppID': '',
-                        'tags': {}
-                }
-                data['shortcuts'] = shortcuts
+		# Create Shortcut
+		shortcuts[target_idx] = {
+			'appid': signed_appid,
+			'AppName': APP_NAME,
+			'Exe': quoted_exe,
+			'StartDir': quoted_start,
+			'icon': ICON if os.path.exists(ICON) else '',
+			'ShortcutPath': '',
+			'LaunchOptions': '',
+			'IsHidden': 0,
+			'AllowDesktopConfig': 1,
+			'AllowOverlay': 1,
+			'OpenVR': 0,
+			'Devkit': 0,
+			'DevkitGameID': '',
+			'DevkitOverrideAppID': 0,
+			'LastPlayTime': 0,
+			'FlatpakAppID': '',
+			'tags': {}
+		}
+		data['shortcuts'] = shortcuts
 
-                os.makedirs(os.path.dirname(shortcuts_path), exist_ok=True)
-                with open(shortcuts_path, 'wb') as f:
-                        vdf.binary_dump(data, f)
+		os.makedirs(os.path.dirname(shortcuts_path), exist_ok=True)
+		with open(shortcuts_path, 'wb') as f:
+			vdf.binary_dump(data, f)
 
-                print(f"Added Shortcut for Steam ID: {user_id}")
+		print(f"Added 'Log Out' Shortcut for Steam ID: {user_id}")
 
-                # Add Artwork to the Shortcut
-                os.makedirs(grid_dir, exist_ok=True)
+		# Add Artwork to the Shortcut
+		os.makedirs(grid_dir, exist_ok=True)
 
-                # Use the 32-bit AppID string for ALL artwork
-                if os.path.exists(COVER):
-                        ext = os.path.splitext(COVER)[1]
-                        shutil.copy(COVER, os.path.join(grid_dir, f"{appid_str}p{ext}"))
+		# Use the 32-bit AppID string for ALL artwork
+		if os.path.exists(COVER):
+			ext = os.path.splitext(COVER)[1]
+			shutil.copy(COVER, os.path.join(grid_dir, f"{appid_str}p{ext}"))
 
-                if os.path.exists(WIDECOVER):
-                        ext = os.path.splitext(WIDECOVER)[1]
-                        shutil.copy(WIDECOVER, os.path.join(grid_dir, f"{appid_str}{ext}"))
+		if os.path.exists(WIDECOVER):
+			ext = os.path.splitext(WIDECOVER)[1]
+			shutil.copy(WIDECOVER, os.path.join(grid_dir, f"{appid_str}{ext}"))
 
-                if os.path.exists(BACKGROUND):
-                        ext = os.path.splitext(BACKGROUND)[1]
-                        shutil.copy(BACKGROUND, os.path.join(grid_dir, f"{appid_str}_hero{ext}"))
+		if os.path.exists(BACKGROUND):
+			ext = os.path.splitext(BACKGROUND)[1]
+			shutil.copy(BACKGROUND, os.path.join(grid_dir, f"{appid_str}_hero{ext}"))
 
-                if os.path.exists(LOGO):
-                        ext = os.path.splitext(LOGO)[1]
-                        shutil.copy(LOGO, os.path.join(grid_dir, f"{appid_str}_logo{ext}"))
+		if os.path.exists(LOGO):
+			ext = os.path.splitext(LOGO)[1]
+			shutil.copy(LOGO, os.path.join(grid_dir, f"{appid_str}_logo{ext}"))
 
-                print(f"Applied Artwork for Steam ID: {user_id}")
+		print(f"Applied Artwork to 'Log Out' Shortcut for Steam ID: {user_id}")
 EOF
 
 # Confirm file permissions and ownership
@@ -415,4 +435,4 @@ sudo chmod 644 $HOME/.config/systemd/user/gamescope-display-modulation.service
 sudo chown $USER:$USER $HOME/.config/systemd/user/gamescope-display-modulation.service
 
 # Closing Statement
-echo -e "\n\nAgnostic Gaming Mode is now installed!\nTip: Use the new 'Log Out' shortcut in Steam to Log Out of Gaming Mode."
+echo -e "\n\nAgnostic Gaming Mode is now installed!\nTip: Use the new 'Log Out' shortcut in Steam to Log Out of Gaming Mode.\nRestart Steam for the changes to take effect."
