@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Move config definitions to the top so start_recording can access them
 CONFIG_FILE="$HOME/.config/gamescope/modes.cfg"
 CONFIG_DIR="$(dirname "$CONFIG_FILE")"
 
@@ -50,7 +49,7 @@ start_recording() {
 # Start recording before monitoring starts
 start_recording
 
-#Wait for Recording to initialize
+# Wait for Recording to initialize
 sleep 2
 
 # Monitor the config file and restart the recording on close_write events

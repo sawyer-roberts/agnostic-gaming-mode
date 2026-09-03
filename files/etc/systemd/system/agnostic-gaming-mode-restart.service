@@ -1,0 +1,12 @@
+[Unit]
+Description=Restart Gaming Mode when Meta + Alt + Ctrl + Backspace is pressed
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/agnostic-gaming-mode/evsieve.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,49 @@
 #!/bin/bash
 set -e
 
+if [ "$EUID" -eq 0 ]; then
+	echo "Error: Do not run this script using sudo."
+	
+	exit 1
+
+fi
+
+# Array to track installed files
+declare -a INSTALLED_FILES
+
+rollback_on_exit() {
+	local exit_code=$?
+	
+	# Trigger rollback only if the script exits with a non-zero error
+	if [ "$exit_code" -ne 0 ] && [ "${#INSTALLED_FILES[@]}" -gt 0 ]; then
+		echo -e "\n\nInstallation interrupted. Rolling back system changes..."
+		
+		# Iterate through the array and remove tracked files/directories
+		for target_file in "${INSTALLED_FILES[@]}"; do
+			if [ -e "$target_file" ]; then
+				sudo rm -rf "$target_file"
+				echo "Reverted: $target_file"
+			fi
+		done
+		
+		echo "Rollback complete."
+	fi
+	
+	exit "$exit_code"
+}
+
+trap rollback_on_exit EXIT SIGINT SIGTERM
+
+CUR_DIR=$(dirname "$(readlink -f "$0")")
+
+# Validate required local files exist before starting
+if [ ! -d "$CUR_DIR/files" ]; then
+        echo "Error: Required asset directory 'files' is missing from $CUR_DIR. Please ensure you have extracted all files."
+
+        exit 1
+
+fi
+
 # Prompt user with Warning before installation
 while true; do
 	echo -e "\nWarning:\n\nAgnostic Gaming Mode uses a custom version of Gamescope (Required for Gaming Mode).\nIf you already have Gamescope installed, please uninstall it before continuing.\nGamescope will still function normally in your regular Desktop Environment."
@@ -36,7 +79,7 @@ while true; do
 	read -r understand_warning
 	
 	case "$understand_warning" in
-		[Yy])
+		[Uu])
 			echo -e "\nUnderstood Warning..."
 			
 			sleep 1
@@ -57,30 +100,41 @@ while true; do
 	esac
 done
 
-# Install dependencies
-sudo apt update
-sudo apt install -y git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev hwdata libx11-dev libwayland-dev vulkan-headers wayland-protocols libxdamage-dev libxcomposite-dev libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils python3-evdev brightnessctl alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus gcc g++ libvulkan-dev libgl-dev libegl-dev libgbm-dev libdrm-dev libsystemd-dev libyaml-cpp-dev libxnvctrl-dev libdbus-1-dev python3-mako
+# Detect active kernel headers
+HEADER_PKG="linux-headers-$(uname -r)"
 
-# Define the name of the current directory
-CUR_DIR=$(pwd)
+# Install dependencies
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$HEADER_PKG" curl git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev hwdata libx11-dev libwayland-dev vulkan-headers wayland-protocols libxdamage-dev libxcomposite-dev libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils python3-evdev brightnessctl alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus gcc g++ libvulkan-dev libgl-dev libegl-dev libgbm-dev libdrm-dev libsystemd-dev libyaml-cpp-dev libxnvctrl-dev libdbus-1-dev python3-mako libevdev-dev cargo make
 
 # the version of mangohud in the APT repository is too old
 # the newest version needs to be compiled from source
 git clone --recurse-submodules https://github.com/flightlessmango/MangoHud.git
-cd MangoHud
+cd MangoHud || exit
 meson build
 ninja -C build install
-
 cd "$CUR_DIR"
+rm -rf MangoHud
 
 # keyd is not available in the APT repository
 # keyd needs to be compiled from source
 git clone https://github.com/rvaiya/keyd.git
-cd keyd
+cd keyd || exit
 make && sudo make install
 sudo systemctl enable --now keyd
-
 cd "$CUR_DIR"
+rm -rf keyd
+
+# evsieve is not available in the APT repository
+# evsieve needs to be compiled from source
+wget https://github.com/KarsMulder/evsieve/archive/v1.4.0.tar.gz -O evsieve-1.4.0.tar.gz
+tar -xzf evsieve-1.4.0.tar.gz
+cd evsieve-1.4.0 || exit
+cargo build --release
+sudo install -m 755 -t /usr/local/bin target/release/evsieve
+INSTALLED_FILES+=("/usr/local/bin/evsieve")
+cd "$CUR_DIR"
+rm -rf evsieve
 
 # Prompt user with option to install Decky Loader
 while true; do
@@ -90,13 +144,22 @@ while true; do
 	
 	case "$install_decky" in
 		[Yy])
-			# Install Decky Loader
 			echo "Installing Decky Loader..."
-			;;
 			
 			sleep 1
 			
-			rm -f /tmp/user_install_script.sh; if curl -S -s -L -O --output-dir /tmp/ --connect-timeout 60 https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/user_install_script.sh; then bash /tmp/user_install_script.sh 2> /dev/null || echo "Decky Loader encountered a non-fatal Warning. Continuing installation..."; else echo "Decky Loader download failed.\nDecky Loader can be installed manually later."; read; fi
+			rm -f /tmp/user_install_script.sh
+			if curl -S -s -L -O --output-dir /tmp/ --connect-timeout 60 https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/user_install_script.sh; then 
+				bash /tmp/user_install_script.sh || echo "Decky Loader encountered a non-fatal Warning. Continuing installation..."
+			
+			else 
+				echo -e "Decky Loader download failed.\nDecky Loader can be installed manually later."
+				read -r -p "Press Enter to continue..."
+			
+			fi
+			
+			break
+			;;
 		
 		[Nn])
 			break
@@ -148,17 +211,15 @@ mapfile -t DISPLAYS < <(drm_info -j | jq -r '
 ')
 
 # Check if any displays were found
-if [ ${#DISPLAYS[@]} -eq 0 ]; then
+if [ "${#DISPLAYS[@]}" -eq 0 ]; then
 	echo "No active displays found."
+	
 	exit 1
 
 fi
 
 echo -e "\nAvailable Displays:"
-
-# Echo the list of Displays
 for i in "${!DISPLAYS[@]}"; do
-	# Add the corresponding number to the Display
 	echo "$((i + 1))) ${DISPLAYS[$i]}"
 
 done
@@ -167,22 +228,16 @@ echo ""
 
 # Prompt user to select a Display
 while true; do
-	read -p "Select a Display to use for Gaming Mode. Type the id number from the list (1-${#DISPLAYS[@]}): " CHOICE
+	read -r -p "Select a Display to use for Gaming Mode. Type the id number from the list (1-${#DISPLAYS[@]}): " CHOICE
 	
-	# Validate the users selection
 	if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#DISPLAYS[@]}" ]; then
-		
-		# Grab the string based on the users choice
 		SELECTED_STR="${DISPLAYS[$((CHOICE - 1))]}"
-		
-		# Parse the string
 		if [[ "$SELECTED_STR" =~ ^(.*):\ ([0-9]+)x([0-9]+)\ @\ ([0-9]+)Hz$ ]]; then
 			TEMP_DISPLAY="${BASH_REMATCH[1]}"
 			TEMP_WIDTH="${BASH_REMATCH[2]}"
 			TEMP_HEIGHT="${BASH_REMATCH[3]}"
 			TEMP_REFRESH="${BASH_REMATCH[4]}"
 			
-			# Confirm the users choice
 			echo ""
 			echo "You selected:"
 			echo "Display:      $TEMP_DISPLAY"
@@ -190,15 +245,11 @@ while true; do
 			echo "Refresh Rate: ${TEMP_REFRESH}Hz"
 			echo ""
 			
-			read -p "Is this correct? [Y/n] " CONFIRM
-			
-			# Restart loop if user selected wrong Display
+			read -r -p "Is this correct? [Y/n] " CONFIRM
 			if [[ "$CONFIRM" =~ ^[Nn] ]]; then
 				echo ""
-				# Restart loop
 				continue
 			else
-				# Assign the temporary variables to the final variables
 				CHOSEN_DISPLAY="$TEMP_DISPLAY"
 				CHOSEN_WIDTH="$TEMP_WIDTH"
 				CHOSEN_HEIGHT="$TEMP_HEIGHT"
@@ -206,9 +257,9 @@ while true; do
 				break
 			
 			fi
-			
 		else
 			echo "Error parsing the selected display data."
+			
 			exit 1
 		
 		fi
@@ -220,117 +271,242 @@ done
 
 # Save user choice to file
 echo -e "GAMESCOPE_DISPLAY=\"$CHOSEN_DISPLAY\"\nGAMESCOPE_WIDTH=\"$CHOSEN_WIDTH\"\nGAMESCOPE_HEIGHT=\"$CHOSEN_HEIGHT\"\nGAMESCOPE_REFRESH=\"$CHOSEN_REFRESH\"" | sudo tee /etc/gamescope-display.env > /dev/null
+INSTALLED_FILES+=("/etc/gamescope-display.env")
+
 echo -e "\nConfiguration saved successfully!"
 
 sleep 1
 
 cd "$CUR_DIR"
 
-# Install files
-
-# Compile Gamescope
+# Compile Agnostic Gamescope
+rm -rf "$CUR_DIR/agnostic-gamescope"
 git clone https://github.com/sawyer-roberts/agnostic-gamescope.git
-cd "$CUR_DIR/agnostic-gamescope/"
+cd "$CUR_DIR/agnostic-gamescope/" || exit
 git submodule update --init
 meson setup build/
 ninja -C build/
-meson install -C build/ --skip-subprojects
+sudo meson install -C build/ --skip-subprojects
 
 # Give Gamescope elevated system privileges
 if ! getcap /usr/local/bin/gamescope | grep -q "cap_sys_nice=eip"; then
 	sudo setcap 'cap_sys_nice=eip' /usr/local/bin/gamescope
+
 fi
 
-cd "$CUR_DIR"
+INSTALLED_FILES+=("/usr/local/bin/gamescope")
 
+cd "$CUR_DIR"
 rm -rf "$CUR_DIR/agnostic-gamescope"
 
-ACTUAL_USER="${SUDO_USER:-$USER}"
+ACTUAL_USER="$USER"
 sudo usermod -aG input "$ACTUAL_USER"
+
 echo "uinput" | sudo tee /etc/modules-load.d/uinput.conf > /dev/null
-sudo modprobe uinput
+INSTALLED_FILES+=("/etc/modules-load.d/uinput.conf")
+
+sudo modprobe uinput || echo -e "\nWarning: Could not load the uinput module.\nReboot your computer after the installation completes to load it."
+
 echo 'KERNEL=="uinput", GROUP="input", MODE="0660"' | sudo tee /etc/udev/rules.d/99-uinput.rules > /dev/null
+INSTALLED_FILES+=("/etc/udev/rules.d/99-uinput.rules")
+
 sudo udevadm control --reload-rules && sudo udevadm trigger
 
-sudo mv "$CUR_DIR/files/usr/share/wayland-sessions/gaming-mode.desktop" "/usr/share/wayland-sessions/gaming-mode.desktop" && echo -e "\nMoved gaming-mode.desktop -> /usr/share/wayland-sessions/"
+mkdir -p "$HOME/.config/systemd/user"
 
-sudo mv "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/gamescope-session" "/usr/local/bin/agnostic-gaming-mode/gamescope-session" && echo -e "\nMoved gamescope-session -> /usr/local/bin/agnostic-gaming-mode/"
-sudo mv "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/volume.sh" "/usr/local/bin/agnostic-gaming-mode/volume.sh" && echo -e "\nMoved volume.sh -> /usr/local/bin/agnostic-gaming-mode/"
-sudo mv "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/exit-session.sh" "/usr/local/bin/agnostic-gaming-mode/exit-session.sh" && echo -e "\nMoved exit-session.sh -> /usr/local/bin/agnostic-gaming-mode/"
+mkdir -p "$HOME/.local/bin/agnostic-gaming-mode"
+INSTALLED_FILES+=("$HOME/.local/bin/agnostic-gaming-mode")
 
-echo "$USER ALL=(ALL:ALL) NOPASSWD: /usr/bin/modprobe, /usr/sbin/modprobe" | sudo tee /etc/sudoers.d/agnostic-gaming-mode-modprobe && echo -e "\nCreated sudoers rule 'agnostic-gaming-mode-modprobe' in /etc/sudoers.d/"
+sudo mkdir -p "/usr/local/bin/agnostic-gaming-mode"
+INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode")
 
-# Prompt user with option to enable controller shortuts for their keyboard
+sudo mkdir -p "/usr/share/wayland-sessions"
+
+# Copy System Files
+
+# gamescope-display-modulation.service
+cp "$CUR_DIR/files/.config/systemd/user/gamescope-display-modulation.service" "$HOME/.config/systemd/user/gamescope-display-modulation.service" && echo "Copied gamescope-display-modulation.service -> $HOME/.config/systemd/user/"
+INSTALLED_FILES+=("$HOME/.config/systemd/user/gamescope-display-modulation.service")
+
+# gamescope-display-modulation.sh
+cp "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh" "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh" && echo "Copied gamescope-display-modulation.sh -> $HOME/.local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh")
+
+# ScreenRecordingGamingMode.sh
+cp "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh" "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh" && echo "Copied ScreenRecordingGamingMode.sh -> $HOME/.local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh")
+
+# agnostic-gaming-mode-restart.service
+sudo cp "$CUR_DIR/etc/systemd/system/agnostic-gaming-mode-restart.service" "/etc/systemd/system/agnostic-gaming-mode-restart.service" && echo -e "Copied agnostic-gaming-mode-restart.service -> /etc/systemd/system/"
+INSTALLED_FILES+=("/etc/systemd/system/agnostic-gaming-mode-restart.service")
+
+# evsieve.sh
+sudo cp "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/evsieve.sh" "/usr/local/bin/agnostic-gaming-mode/evsieve.sh" && echo "Copied evsieve.sh -> /usr/local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode/evsieve.sh")
+
+# gamescope-session
+sudo cp "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/gamescope-session" "/usr/local/bin/agnostic-gaming-mode/gamescope-session" && echo "Copied gamescope-session -> /usr/local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode/gamescope-session")
+
+# restart.sh
+sudo cp "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/restart.sh" "/usr/local/bin/agnostic-gaming-mode/restart.sh" && echo "Copied restart.sh -> /usr/local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode/restart.sh")
+
+# steam-restart.sh
+sudo cp "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/steam-restart.sh" "/usr/local/bin/agnostic-gaming-mode/steam-restart.sh" && echo "Copied steam-restart.sh -> /usr/local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode/steam-restart.sh")
+
+# volume.sh
+sudo cp "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/volume.sh" "/usr/local/bin/agnostic-gaming-mode/volume.sh" && echo "Copied volume.sh -> /usr/local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode/volume.sh")
+
+TEMP_SUDOERS=$(mktemp)
+INSTALLED_FILES+=("$TEMP_SUDOERS")
+
+cat << EOF > "$TEMP_SUDOERS"
+${ACTUAL_USER} ALL=(ALL:ALL) NOPASSWD: /usr/bin/systemctl restart plugin_loader.service, \\
+	/usr/bin/keyd reload, \\
+	/usr/bin/systemctl enable --now keyd, \\
+	/usr/bin/modprobe, \\
+	/usr/sbin/modprobe, \\
+	/usr/bin/systemctl enable --now agnostic-gaming-mode-restart.service, \\
+	/usr/bin/systemctl restart agnostic-gaming-mode-restart.service
+EOF
+
+if sudo visudo -cf "$TEMP_SUDOERS" > /dev/null 2>&1; then
+	if [ -f /etc/sudoers.d/agnostic-gaming-mode ]; then
+		sudo rm -f /etc/sudoers.d/agnostic-gaming-mode
+	fi
+	
+	# agnostic-gaming-mode
+	sudo cp "$TEMP_SUDOERS" /etc/sudoers.d/agnostic-gaming-mode
+	INSTALLED_FILES+=("/etc/sudoers.d/agnostic-gaming-mode")
+	
+	sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode
+	sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode
+	
+	echo "Created sudoers rule 'agnostic-gaming-mode' in /etc/sudoers.d/"
+
+else
+	echo "Error: Invalid syntax. Aborting..."
+	
+	rm -f "$TEMP_SUDOERS"
+	
+	exit 1
+
+fi
+
+rm -f "$TEMP_SUDOERS"
+
+if [ -f /etc/sudoers.d/agnostic-gaming-mode-modprobe ]; then
+	sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-modprobe
+
+fi
+
+# agnostic-gaming-mode.desktop
+sudo cp "$CUR_DIR/files/usr/share/wayland-sessions/agnostic-gaming-mode.desktop" "/usr/share/wayland-sessions/agnostic-gaming-mode.desktop" && echo "Copied agnostic-gaming-mode.desktop -> /usr/share/wayland-sessions/"
+INSTALLED_FILES+=("/usr/share/wayland-sessions/agnostic-gaming-mode.desktop")
+
+# Prompt user with option to enable controller shortcuts for their keyboard
 while true; do
 	echo -e "\nWould you like to enable controller shortcuts on the Keyboard?\n\nThis changes:\nShift + Meta (Windows) -> Steam Button\nShift + Meta (Windows) + Alt -> Quick Access Menu\nShift + Escape -> B Button\n\nNote: Steam Menu and Quick Access Menu can still be accessed with Ctrl + 1/2 without it."
-	echo -e "\nType 'Y/y' to enable controller shortcuts.\nType 'N/n' to disable controller shortcuts.
+	echo -e "\nType 'Y/y' to enable controller shortcuts.\nType 'N/n' to disable controller shortcuts."
 	read -r enable_shortcuts
-	
+
 	case "$enable_shortcuts" in
 		[Yy])
-			sudo mv "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py" "/usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py" && echo "Moved keyboard-mouse-shortcuts.py -> /usr/local/bin/agnostic-gaming-mode/"
-			echo "$USER ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled, /usr/bin/keyd reload" | sudo tee /etc/sudoers.d/agnostic-gaming-mode-keyd && echo -e "\nCreated sudoers rule 'agnostic-gaming-mode-keyd' in /etc/sudoers.d/"
-			
-			# Confirm file permissions and ownership
+			# keyboard-mouse-shortcuts.py
+			sudo cp "$CUR_DIR/files/usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py" "/usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py" && echo "Copied keyboard-mouse-shortcuts.py -> /usr/local/bin/agnostic-gaming-mode/"
+			INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py")
+
+			# agnostic-gaming-mode.conf.disabled
+			sudo cp "$CUR_DIR/files/etc/keyd/agnostic-gaming-mode.conf.disabled" "/etc/keyd/agnostic-gaming-mode.conf.disabled" && echo "Copied agnostic-gaming-mode.conf.disabled -> /etc/keyd/"
+			INSTALLED_FILES+=("/etc/keyd/agnostic-gaming-mode.conf.disabled")
+
+			TEMP_KEYD=$(mktemp)
+			INSTALLED_FILES+=("$TEMP_KEYD")
+
+			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
+				if [ -f /etc/sudoers.d/agnostic-gaming-mode-keyd ]; then
+					sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd
+				fi
+
+				cat << EOF > "$TEMP_KEYD"
+${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, \
+		/usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled, \
+		/usr/bin/keyd reload
+EOF
+
+				# agnostic-gaming-mode-keyd
+				sudo cp "$TEMP_KEYD" /etc/sudoers.d/agnostic-gaming-mode-keyd
+				INSTALLED_FILES+=("/etc/sudoers.d/agnostic-gaming-mode-keyd")
+
+				sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-keyd
+				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd
+
+				echo "Created sudoers rule 'agnostic-gaming-mode-keyd' in /etc/sudoers.d/"
+
+			else
+				echo "Error: Invalid syntax."
+
+				rm -f "$TEMP_KEYD"
+
+				exit 1
+
+			fi
+
+			rm -f "$TEMP_KEYD"
+
+			sudo chmod 644 /etc/keyd/agnostic-gaming-mode.conf.disabled
+			sudo chown root:root /etc/keyd/agnostic-gaming-mode.conf.disabled
+
 			sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py
 			sudo chown root:root /usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py
-			
-			sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-keyd
-			sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd
-			
-			# Reload keyd configuration
+
+			sudo systemctl enable --now keyd
 			sudo keyd reload
+
+			break
 			;;
-		
+
 		[Nn])
 			break
 			;;
-		
+
 		*)
 			echo "Invalid input. Please type 'Y/y' or 'N/n'."
-			
+
 			sleep 1
+
 			;;
-	
+
 	esac
 done
 
-mv "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh" "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh" && echo -e "\nMoved gamescope-display-modulation.sh -> $HOME/.local/bin/agnostic-gaming-mode/"
-mv "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh" "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh" && echo -e "\nMoved ScreenRecordingGamingMode.sh -> $HOME/.local/bin/agnostic-gaming-mode/"
-
-mv "$CUR_DIR/files/.config/systemd/user/gamescope-display-modulation.service" "$HOME/files/.config/systemd/user/gamescope-display-modulation.service" && echo -e "\nMoved gamescope-display-modulation.service -> $HOME/files/.config/systemd/user/"
-
-# Create Steam Shortcut pointing to the exit-session.sh script
-# This allows the user to log out of Gaming Mode
 python3 << 'EOF'
 import os
 import vdf
 import zlib
 import shutil
 
-APP_NAME = "Log Out"
-EXE_PATH = "/usr/local/bin/agnostic-gaming-mode/exit-session.sh"
+APP_NAME = "Exit Agnostic Gaming Mode"
+EXE_PATH = "/usr/local/bin/agnostic-gaming-mode/steam-restart.sh"
 START_DIR = "/usr/local/bin/agnostic-gaming-mode/"
 
-COVER = "$CUR_DIR/GitHub/Projects/agnostic-gaming-mode/files/steamart/cover.png"
-WIDECOVER = "$CUR_DIR/GitHub/Projects/agnostic-gaming-mode/files/steamart/widecover.png"
-BACKGROUND = "$CUR_DIR/GitHub/Projects/agnostic-gaming-mode/files/steamart/background.png"
-LOGO = "$CUR_DIR/GitHub/Projects/agnostic-gaming-mode/files/steamart/logo.png"
-ICON = "$CUR_DIR/GitHub/Projects/agnostic-gaming-mode/files/steamart/icon.png"
+CUR_DIR = os.getcwd()
+COVER = f"{CUR_DIR}/files/steamart/cover.png"
+WIDECOVER = f"{CUR_DIR}/files/steamart/widecover.png"
+BACKGROUND = f"{CUR_DIR}/files/steamart/background.png"
+LOGO = f"{CUR_DIR}/files/steamart/logo.png"
+ICON = f"{CUR_DIR}/files/steamart/icon.png"
 
 quoted_exe = f'"{EXE_PATH}"'
 quoted_start = f'"{START_DIR}"'
 
-# Calculate Steam's 32-bit AppID
-# The target string MUST perfectly match the concatenated Quoted Exe and AppName.
 target_string = f'{quoted_exe}{APP_NAME}'
 crc = zlib.crc32(target_string.encode('utf-8'))
 appid_32 = (crc & 0xFFFFFFFF) | 0x80000000
-
-# The python-vdf library requires a signed 32-bit integer to correctly write binary data.
 signed_appid = appid_32 - 0x100000000 if appid_32 > 0x7FFFFFFF else appid_32
-
-# Artwork filenames always use the unsigned 32-bit string representation.
 appid_str = str(appid_32)
 
 steam_paths = [
@@ -338,9 +514,9 @@ steam_paths = [
 	os.path.expanduser("~/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata")
 ]
 
-userdata_dir = next((path for path in steam_paths if os.path.exists(path)), None)
+valid_steam_dirs = [path for path in steam_paths if os.path.exists(path)]
 
-if userdata_dir:
+for userdata_dir in valid_steam_dirs:
 	for user_id in os.listdir(userdata_dir):
 		if not user_id.isdigit() or user_id == "0":
 			continue
@@ -348,7 +524,6 @@ if userdata_dir:
 		shortcuts_path = os.path.join(userdata_dir, user_id, "config", "shortcuts.vdf")
 		grid_dir = os.path.join(userdata_dir, user_id, "config", "grid")
 
-		# Parse existing shortcuts
 		if os.path.exists(shortcuts_path):
 			with open(shortcuts_path, 'rb') as f:
 				data = vdf.binary_load(f)
@@ -356,8 +531,6 @@ if userdata_dir:
 			data = {'shortcuts': {}}
 
 		shortcuts = data.get('shortcuts', {})
-
-		# Find the existing 'Log Out' shortcut to overwrite, or calculate a new index
 		target_idx = None
 		for idx, s in shortcuts.items():
 			if isinstance(s, dict) and s.get('AppName') == APP_NAME:
@@ -368,7 +541,6 @@ if userdata_dir:
 			existing_indices = [int(k) for k in shortcuts.keys() if str(k).isdigit()]
 			target_idx = str(max(existing_indices + [-1]) + 1)
 
-		# Create Shortcut
 		shortcuts[target_idx] = {
 			'appid': signed_appid,
 			'AppName': APP_NAME,
@@ -394,52 +566,58 @@ if userdata_dir:
 		with open(shortcuts_path, 'wb') as f:
 			vdf.binary_dump(data, f)
 
-		print(f"Added 'Log Out' Shortcut for Steam ID: {user_id}")
-
-		# Add Artwork to the Shortcut
+		print(f"Added 'Exit Agnostic Gaming Mode' Shortcut for Steam ID: {user_id}")
 		os.makedirs(grid_dir, exist_ok=True)
 
-		# Use the 32-bit AppID string for ALL artwork
 		if os.path.exists(COVER):
 			ext = os.path.splitext(COVER)[1]
 			shutil.copy(COVER, os.path.join(grid_dir, f"{appid_str}p{ext}"))
-
 		if os.path.exists(WIDECOVER):
 			ext = os.path.splitext(WIDECOVER)[1]
 			shutil.copy(WIDECOVER, os.path.join(grid_dir, f"{appid_str}{ext}"))
-
 		if os.path.exists(BACKGROUND):
 			ext = os.path.splitext(BACKGROUND)[1]
 			shutil.copy(BACKGROUND, os.path.join(grid_dir, f"{appid_str}_hero{ext}"))
-
 		if os.path.exists(LOGO):
 			ext = os.path.splitext(LOGO)[1]
 			shutil.copy(LOGO, os.path.join(grid_dir, f"{appid_str}_logo{ext}"))
 
-		print(f"Applied Artwork to 'Log Out' Shortcut for Steam ID: {user_id}")
+		print(f"Applied Artwork to 'Exit Agnostic Gaming Mode' Shortcut for Steam ID: {user_id}")
 EOF
 
-# Confirm file permissions and ownership
-sudo chmod 644 /usr/share/wayland-sessions/gaming-mode.desktop
-sudo chown root:root /usr/share/wayland-sessions/gaming-mode.desktop
+sudo chmod 644 "$HOME/.config/systemd/user/gamescope-display-modulation.service"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.config/systemd/user/gamescope-display-modulation.service"
+
+sudo chmod 755 "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
+
+sudo chmod 755 "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
+
+sudo chmod 644 /etc/systemd/system/agnostic-gaming-mode-restart.service
+sudo chown root:root /etc/systemd/system/agnostic-gaming-mode-restart.service
+
+sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/evsieve.sh
+sudo chown root:root /usr/local/bin/agnostic-gaming-mode/evsieve.sh
 
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/gamescope-session
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/gamescope-session
 
+sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/restart.sh
+sudo chown root:root /usr/local/bin/agnostic-gaming-mode/restart.sh
+
+sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/steam-restart.sh
+sudo chown root:root /usr/local/bin/agnostic-gaming-mode/steam-restart.sh
+
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/volume.sh
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/volume.sh
 
-sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-modprobe
-sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-modprobe
+sudo chmod 644 /usr/share/wayland-sessions/agnostic-gaming-mode.desktop
+sudo chown root:root /usr/share/wayland-sessions/agnostic-gaming-mode.desktop
 
-sudo chmod 755 $HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh
-sudo chown $USER:$USER $HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh
+sudo systemctl daemon-reload
+systemctl --user daemon-reload || true
 
-sudo chmod 755 $HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh
-sudo chown $USER:$USER $HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh
+trap - EXIT SIGINT SIGTERM
 
-sudo chmod 644 $HOME/.config/systemd/user/gamescope-display-modulation.service
-sudo chown $USER:$USER $HOME/.config/systemd/user/gamescope-display-modulation.service
-
-# Closing Statement
-echo -e "\n\nAgnostic Gaming Mode is now installed!\nTip: Use the new 'Log Out' shortcut in Steam to Log Out of Gaming Mode.\nRestart Steam for the changes to take effect."
+echo -e "\n\nAgnostic Gaming Mode is now installed!\nTip: Use the new 'Exit Agnostic Gaming Mode' shortcut in Steam to return to the Log-In Screen.\nLog Out or Restart your Computer to apply all changes."

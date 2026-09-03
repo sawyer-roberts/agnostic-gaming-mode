@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Gaming Mode
-Comment=Agnostic Gaming Mode
+Name=Agnostic Gaming Mode
+Comment=Spoofed Gaming Mode to have a SteamOS-like Gaming Mode on any distribution
 Exec=/usr/local/bin/agnostic-gaming-mode/gamescope-session
 Type=Application
 DesktopNames=GamingMode
