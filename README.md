@@ -6,6 +6,8 @@ Note: Distributions that rely on old stable packages may have limited functional
 
 Improved support for other distributions will be added in the future but it will need to be installed manually on them for now.
 
+Note: apt install script currently does not work as intended.
+
 Online Installation:
 
 Download the newest version from Releases and run the install script for your package manager:
