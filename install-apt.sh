@@ -439,9 +439,9 @@ while true; do
 
 			TEMP_KEYD=$(mktemp)
 
-			cat << EOF > "$TEMP_KEYD"
-${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled
-EOF
+			cat <<-EOF > "$TEMP_KEYD"
+			${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled
+			EOF
 
 			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
 				sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd
@@ -467,9 +467,9 @@ EOF
 
 			TEMP_KEYD=$(mktemp)
 
-			cat << EOF > "$TEMP_KEYD"
-${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/local/bin/keyd reload
-EOF
+			cat <<-EOF > "$TEMP_KEYD"
+			${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/local/bin/keyd reload
+			EOF
 
 			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
 				sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
@@ -500,6 +500,9 @@ EOF
 			sudo chown root:root /usr/local/bin/agnostic-gaming-mode/keyboard-mouse-shortcuts.py
 
 			sudo systemctl enable --now keyd
+			
+			sleep 2
+			
 			sudo keyd reload
 
 			break

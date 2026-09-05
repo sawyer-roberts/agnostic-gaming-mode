@@ -31,7 +31,11 @@ sudo systemctl enable --now agnostic-gaming-mode-restart.service
 
 # Enable keyd conf while in Gaming Mode
 sudo systemctl enable --now keyd
+
+sleep 2
+
 sudo mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf 2>/dev/null
+
 sudo keyd reload
 
 sleep 1
@@ -75,6 +79,7 @@ rm -f /tmp/gamescope-session.pid
 
 # Disable keyd conf when exiting Gaming Mode
 sudo mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled 2>/dev/null
+
 sudo keyd reload
 
 sudo systemctl restart agnostic-gaming-mode-restart.service
