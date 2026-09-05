@@ -491,61 +491,59 @@ while true; do
 			INSTALLED_FILES+=("/etc/keyd/agnostic-gaming-mode.conf.disabled")
 
 			TEMP_KEYD=$(mktemp)
-			INSTALLED_FILES+=("$TEMP_KEYD")
-
-			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
-				if [ -f /etc/sudoers.d/agnostic-gaming-mode-keyd ]; then
-					sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd
-				fi
-
-				cat << EOF > "$TEMP_KEYD"
+			
+			cat << EOF > "$TEMP_KEYD"
 ${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled
 EOF
-
+			
+			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
+				sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd
+				
 				# agnostic-gaming-mode-keyd
 				sudo cp "$TEMP_KEYD" /etc/sudoers.d/agnostic-gaming-mode-keyd
 				INSTALLED_FILES+=("/etc/sudoers.d/agnostic-gaming-mode-keyd")
 
 				sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-keyd
 				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd
-
+				
 				echo "Created sudoers rule 'agnostic-gaming-mode-keyd' in /etc/sudoers.d/"
-
+			
 			else
 				echo "Error: Invalid syntax."
-
+				
 				rm -f "$TEMP_KEYD"
-
+				
+				exit 1
+			fi
+			
+			rm -f "$TEMP_KEYD"
+			
 			TEMP_KEYD=$(mktemp)
-			INSTALLED_FILES+=("$TEMP_KEYD")
-
-			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
-				if [ -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat ]; then
-					sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
-				fi
-
-				cat << EOF > "$TEMP_KEYD"
+			
+			cat << EOF > "$TEMP_KEYD"
 ${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/local/bin/keyd reload
 EOF
-
+			
+			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
+				sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				
 				# agnostic-gaming-mode-keyd-compat
 				sudo cp "$TEMP_KEYD" /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
 				INSTALLED_FILES+=("/etc/sudoers.d/agnostic-gaming-mode-keyd-compat")
 
 				sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
 				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
-
+				
 				echo "Created sudoers rule 'agnostic-gaming-mode-keyd-compat' in /etc/sudoers.d/"
-
+			
 			else
 				echo "Error: Invalid syntax."
-
+				
 				rm -f "$TEMP_KEYD"
-
+				
 				exit 1
-
 			fi
-
+			
 			rm -f "$TEMP_KEYD"
 
 			sudo chmod 644 /etc/keyd/agnostic-gaming-mode.conf.disabled
@@ -559,18 +557,17 @@ EOF
 
 			break
 			;;
-
+		
 		[Nn])
 			break
 			;;
-
+		
 		*)
 			echo "Invalid input. Please type 'Y/y' or 'N/n'."
-
+			
 			sleep 1
-
 			;;
-
+	
 	esac
 done
 
