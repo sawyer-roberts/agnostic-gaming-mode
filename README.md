@@ -8,7 +8,7 @@ Improved support for other distributions will be added in the future but manual 
 
 Download and extract the newest version from Releases and run the install script for your package manager:
 
-**Note: Some extraction software will automatically extract the contents into a sub-folder named "agm-online-installer-1.0.10"**
+**Note: Some extraction software will automatically extract the contents into a sub-folder named "agm-online-installer-1.0.11"**
 **If that occurs, run ```cd agm-online-installer-1.0.10/agnostic-gaming-mode``` instead.**
 
 pacman:
