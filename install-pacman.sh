@@ -105,7 +105,21 @@ KERNEL_PKG=$(pacman -Qqo "/usr/lib/modules/$(uname -r)" 2>/dev/null || echo "lin
 HEADER_PKG="${KERNEL_PKG}-headers"
 
 # Install dependencies
-sudo pacman -S --needed --noconfirm "$HEADER_PKG" curl git meson ninja pkgconf cmake pipewire hwdata libx11 wayland vulkan-headers wayland-protocols libxdamage libxcomposite libxcursor libxxf86vm libxtst libxres libxmu libxkbcommon libcap sdl2 libavif lcms2 seatd libinput xorg-xwayland libxcb xcb-util-wm glslang luajit catch2 wireplumber libdisplay-info stb konsole gstreamer gst-plugins-base gst-plugins-good gst-plugin-pipewire v4l2loopback-dkms procps-ng v4l-utils mangohud python-evdev brightnessctl alsa-utils gawk keyd inotify-tools drm-info jq python-vdf
+PACKAGES=(
+	"$HEADER_PKG" curl git meson ninja pkgconf cmake pipewire hwdata libx11 wayland 
+	vulkan-headers wayland-protocols libxdamage libxcomposite libxcursor libxxf86vm 
+	libxtst libxres libxmu libxkbcommon libcap sdl2 libavif lcms2 seatd libinput 
+	xorg-xwayland libxcb xcb-util-wm glslang luajit catch2 wireplumber libdisplay-info 
+	stb konsole gstreamer gst-plugins-base gst-plugins-good gst-plugin-pipewire 
+	v4l2loopback-dkms procps-ng v4l-utils mangohud python-evdev brightnessctl alsa-utils 
+	gawk keyd inotify-tools drm-info jq python-vdf python python-xlib python-dbus gcc 
+	yaml-cpp libxnvctrl dbus python-mako libevdev cargo make bison flex vulkan-icd-loader 
+	libglvnd mesa libdrm systemd
+)
+
+for pkg in "${PACKAGES[@]}"; do
+	sudo pacman -S --needed --noconfirm "$pkg" || echo "Warning: Failed to install $pkg, skipping..."
+done
 
 if command -v paru &> /dev/null && ! command -v yay &> /dev/null; then
 	paru -S --needed --noconfirm evsieve
@@ -390,7 +404,7 @@ cp "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
 INSTALLED_FILES+=("$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh")
 
 # agnostic-gaming-mode-restart.service
-sudo cp "$CUR_DIR/etc/systemd/system/agnostic-gaming-mode-restart.service" "/etc/systemd/system/agnostic-gaming-mode-restart.service" && echo -e "Copied agnostic-gaming-mode-restart.service -> /etc/systemd/system/"
+sudo cp "$CUR_DIR/files/etc/systemd/system/agnostic-gaming-mode-restart.service" "/etc/systemd/system/agnostic-gaming-mode-restart.service" && echo -e "Copied agnostic-gaming-mode-restart.service -> /etc/systemd/system/"
 INSTALLED_FILES+=("/etc/systemd/system/agnostic-gaming-mode-restart.service")
 
 # evsieve.sh
@@ -485,9 +499,7 @@ while true; do
 				fi
 
 				cat << EOF > "$TEMP_KEYD"
-${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, \
-		/usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled, \
-		/usr/bin/keyd reload
+${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled
 EOF
 
 				# agnostic-gaming-mode-keyd
@@ -498,6 +510,32 @@ EOF
 				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd
 
 				echo "Created sudoers rule 'agnostic-gaming-mode-keyd' in /etc/sudoers.d/"
+
+			else
+				echo "Error: Invalid syntax."
+
+				rm -f "$TEMP_KEYD"
+
+			TEMP_KEYD=$(mktemp)
+			INSTALLED_FILES+=("$TEMP_KEYD")
+
+			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
+				if [ -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat ]; then
+					sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				fi
+
+				cat << EOF > "$TEMP_KEYD"
+${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/local/bin/keyd reload
+EOF
+
+				# agnostic-gaming-mode-keyd-compat
+				sudo cp "$TEMP_KEYD" /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				INSTALLED_FILES+=("/etc/sudoers.d/agnostic-gaming-mode-keyd-compat")
+
+				sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+
+				echo "Created sudoers rule 'agnostic-gaming-mode-keyd-compat' in /etc/sudoers.d/"
 
 			else
 				echo "Error: Invalid syntax."
@@ -639,13 +677,13 @@ for userdata_dir in valid_steam_dirs:
 EOF
 
 sudo chmod 644 "$HOME/.config/systemd/user/gamescope-display-modulation.service"
-sudo chown "$ACTUAL_USER": "$HOME/.config/systemd/user/gamescope-display-modulation.service"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.config/systemd/user/gamescope-display-modulation.service"
 
 sudo chmod 755 "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
-sudo chown "$ACTUAL_USER": "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
 
 sudo chmod 755 "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
-sudo chown "$ACTUAL_USER": "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
 
 sudo chmod 644 /etc/systemd/system/agnostic-gaming-mode-restart.service
 sudo chown root:root /etc/systemd/system/agnostic-gaming-mode-restart.service

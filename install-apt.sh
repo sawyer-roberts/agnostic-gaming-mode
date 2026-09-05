@@ -46,34 +46,6 @@ fi
 
 # Prompt user with Warning before installation
 while true; do
-	echo -e "\nWarning:\n\nAgnostic Gaming Mode uses a custom version of Gamescope (Required for Gaming Mode).\nIf you already have Gamescope installed, please uninstall it before continuing.\nGamescope will still function normally in your regular Desktop Environment."
-	echo -e "\nType 'Y/y' to continue the installation.\nType 'C/c' to cancel the installation."
-	read -r continue_installation
-	
-	case "$continue_installation" in
-		[Yy])
-			echo -e "\nContinuing installation..."
-			
-			sleep 1
-			
-			break
-			;;
-		
-		[Cc])
-			exit 1
-			;;
-		
-		*)
-			echo -e "\nInvalid input. Please type 'Y/y' or 'C/c'."
-			
-			sleep 1
-			;;
-	
-	esac
-done
-
-# Prompt user with Second Warning before installation
-while true; do
 	echo -e "\nWarning:\n\nAgnostic Gaming Mode is designed for single user setups.\nOnly the user that installed Agnostic Gaming Mode will be able to use it.\nThe installer can be run again as a different user."
 	echo -e "\nType 'U/u' to understand this warning.\nType 'C/c' to cancel the installation."
 	read -r understand_warning
@@ -105,28 +77,55 @@ HEADER_PKG="linux-headers-$(uname -r)"
 
 # Install dependencies
 sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$HEADER_PKG" curl git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev hwdata libx11-dev libwayland-dev vulkan-headers wayland-protocols libxdamage-dev libxcomposite-dev libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils python3-evdev brightnessctl alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus gcc g++ libvulkan-dev libgl-dev libegl-dev libgbm-dev libdrm-dev libsystemd-dev libyaml-cpp-dev libxnvctrl-dev libdbus-1-dev python3-mako libevdev-dev cargo make
+PACKAGES=(
+	"$HEADER_PKG" curl git meson ninja-build pkgconf cmake pipewire libpipewire-0.3-dev 
+	hwdata libx11-dev libwayland-dev wayland-protocols libxdamage-dev libxcomposite-dev 
+	libxcursor-dev libxxf86vm-dev libxtst-dev libxres-dev libxmu-dev libxkbcommon-dev 
+	libcap-dev libsdl2-dev libavif-dev liblcms2-dev libseat-dev libinput-dev xwayland 
+	libxcb1-dev libxcb-icccm4-dev libxcb-ewmh-dev glslang-dev glslang-tools libluajit-5.1-dev 
+	catch2 wireplumber libwireplumber-0.4-dev libdisplay-info-dev libstb-dev konsole 
+	libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good 
+	gstreamer1.0-pipewire v4l2loopback-dkms procps v4l-utils python3-evdev brightnessctl 
+	alsa-utils gawk inotify-tools drm-info jq python3-vdf python3 python3-xlib python3-dbus 
+	gcc g++ libvulkan-dev libgl-dev libegl-dev libgbm-dev libdrm-dev libsystemd-dev 
+	libyaml-cpp-dev libxnvctrl-dev libdbus-1-dev python3-mako libevdev-dev cargo make 
+	libwayland-egl-backend-dev bison flex libxcb-xkb-dev
+)
+
+for pkg in "${PACKAGES[@]}"; do
+	sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg" || echo "Warning: Failed to install $pkg, skipping..."
+done
 
 # the version of mangohud in the APT repository is too old
 # the newest version needs to be compiled from source
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv
+
+sudo rm -rf "$CUR_DIR/MangoHud"
 git clone --recurse-submodules https://github.com/flightlessmango/MangoHud.git
 cd MangoHud || exit
-meson build
-ninja -C build install
+
+python3 -m venv .meson-venv
+.meson-venv/bin/pip install meson
+
+.meson-venv/bin/meson setup build
+sudo ninja -C build install
+
 cd "$CUR_DIR"
-rm -rf MangoHud
+sudo rm -rf MangoHud
 
 # keyd is not available in the APT repository
 # keyd needs to be compiled from source
+sudo rm -rf "$CUR_DIR/keyd"
 git clone https://github.com/rvaiya/keyd.git
 cd keyd || exit
 make && sudo make install
 sudo systemctl enable --now keyd
 cd "$CUR_DIR"
-rm -rf keyd
+sudo rm -rf keyd
 
 # evsieve is not available in the APT repository
 # evsieve needs to be compiled from source
+sudo rm -rf "$CUR_DIR/evsieve-1.4.0"
 wget https://github.com/KarsMulder/evsieve/archive/v1.4.0.tar.gz -O evsieve-1.4.0.tar.gz
 tar -xzf evsieve-1.4.0.tar.gz
 cd evsieve-1.4.0 || exit
@@ -134,7 +133,8 @@ cargo build --release
 sudo install -m 755 -t /usr/local/bin target/release/evsieve
 INSTALLED_FILES+=("/usr/local/bin/evsieve")
 cd "$CUR_DIR"
-rm -rf evsieve
+sudo rm -rf "$CUR_DIR/evsieve-1.4.0"
+sudo rm -f "$CUR_DIR/evsieve-1.4.0.tar.gz"
 
 # Prompt user with option to install Decky Loader
 while true; do
@@ -279,25 +279,39 @@ sleep 1
 
 cd "$CUR_DIR"
 
-# Compile Agnostic Gamescope
-rm -rf "$CUR_DIR/agnostic-gamescope"
-git clone https://github.com/sawyer-roberts/agnostic-gamescope.git
-cd "$CUR_DIR/agnostic-gamescope/" || exit
-git submodule update --init
-meson setup build/
-ninja -C build/
-sudo meson install -C build/ --skip-subprojects
+# Packages provided by APT are
+# too old to use Agnostic Gamescope
+# Installing a Gamescope PPA instead
+while true; do
+	echo -e "The PPA 3v1n0/gamescope will be installed. This will require manual confirmation."
+	echo -e "\nType 'Y/y' to continue."
+	read -r ppa_warning
+	
+	case "$ppa_warning" in
+		[Yy])
+			sudo add-apt-repository ppa:3v1n0/gamescope
+			sudo apt update
+			sudo apt install gamescope
+			
+			break
+			;;
+		
+		*)
+			echo -e "\nInvalid input. Please type 'Y/y'."
+			
+			sleep 1
+			;;
+	
+	esac
+done
 
 # Give Gamescope elevated system privileges
-if ! getcap /usr/local/bin/gamescope | grep -q "cap_sys_nice=eip"; then
-	sudo setcap 'cap_sys_nice=eip' /usr/local/bin/gamescope
+if ! getcap /usr/games/gamescope | grep -q "cap_sys_nice=eip"; then
+	sudo setcap 'cap_sys_nice=eip' /usr/games/gamescope
 
 fi
 
-INSTALLED_FILES+=("/usr/local/bin/gamescope")
-
-cd "$CUR_DIR"
-rm -rf "$CUR_DIR/agnostic-gamescope"
+INSTALLED_FILES+=("/usr/games/gamescope")
 
 ACTUAL_USER="$USER"
 sudo usermod -aG input "$ACTUAL_USER"
@@ -337,7 +351,7 @@ cp "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
 INSTALLED_FILES+=("$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh")
 
 # agnostic-gaming-mode-restart.service
-sudo cp "$CUR_DIR/etc/systemd/system/agnostic-gaming-mode-restart.service" "/etc/systemd/system/agnostic-gaming-mode-restart.service" && echo -e "Copied agnostic-gaming-mode-restart.service -> /etc/systemd/system/"
+sudo cp "$CUR_DIR/files/etc/systemd/system/agnostic-gaming-mode-restart.service" "/etc/systemd/system/agnostic-gaming-mode-restart.service" && echo -e "Copied agnostic-gaming-mode-restart.service -> /etc/systemd/system/"
 INSTALLED_FILES+=("/etc/systemd/system/agnostic-gaming-mode-restart.service")
 
 # evsieve.sh
@@ -432,9 +446,7 @@ while true; do
 				fi
 
 				cat << EOF > "$TEMP_KEYD"
-${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, \
-		/usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled, \
-		/usr/bin/keyd reload
+${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf.disabled /etc/keyd/agnostic-gaming-mode.conf, /usr/bin/mv /etc/keyd/agnostic-gaming-mode.conf /etc/keyd/agnostic-gaming-mode.conf.disabled
 EOF
 
 				# agnostic-gaming-mode-keyd
@@ -445,6 +457,38 @@ EOF
 				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd
 
 				echo "Created sudoers rule 'agnostic-gaming-mode-keyd' in /etc/sudoers.d/"
+
+			else
+				echo "Error: Invalid syntax."
+
+				rm -f "$TEMP_KEYD"
+
+				exit 1
+
+			fi
+
+			rm -f "$TEMP_KEYD"
+
+			TEMP_KEYD=$(mktemp)
+			INSTALLED_FILES+=("$TEMP_KEYD")
+
+			if sudo visudo -cf "$TEMP_KEYD" > /dev/null 2>&1; then
+				if [ -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat ]; then
+					sudo rm -f /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				fi
+
+				cat << EOF > "$TEMP_KEYD"
+${ACTUAL_USER} ALL=(root) NOPASSWD: /usr/local/bin/keyd reload
+EOF
+
+				# agnostic-gaming-mode-keyd-compat
+				sudo cp "$TEMP_KEYD" /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				INSTALLED_FILES+=("/etc/sudoers.d/agnostic-gaming-mode-keyd-compat")
+
+				sudo chmod 0440 /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+				sudo chown root:root /etc/sudoers.d/agnostic-gaming-mode-keyd-compat
+
+				echo "Created sudoers rule 'agnostic-gaming-mode-keyd-compat' in /etc/sudoers>"
 
 			else
 				echo "Error: Invalid syntax."
