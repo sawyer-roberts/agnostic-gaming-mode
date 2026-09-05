@@ -389,11 +389,28 @@ INSTALLED_FILES+=("/usr/local/bin/agnostic-gaming-mode")
 
 sudo mkdir -p "/usr/share/wayland-sessions"
 
-# Copy System Files
+mkdir -p "$HOME/.config/autostart"
+
+# Create/Copy System Files
+
+# agm.desktop
+cat << EOF > "$HOME/.config/autostart/agm.desktop"
+[Desktop Entry]
+Type=Application
+Name=AGM
+Exec=/home/${ACTUAL_USER}/.local/bin/agnostic-gaming-mode/agm-keyd.sh
+X-GNOME-Autostart-enabled=true
+EOF
+
+INSTALLED_FILES+=("$HOME/.config/autostart/agm.desktop")
 
 # gamescope-display-modulation.service
 cp "$CUR_DIR/files/.config/systemd/user/gamescope-display-modulation.service" "$HOME/.config/systemd/user/gamescope-display-modulation.service" && echo "Copied gamescope-display-modulation.service -> $HOME/.config/systemd/user/"
 INSTALLED_FILES+=("$HOME/.config/systemd/user/gamescope-display-modulation.service")
+
+# agm-keyd.sh
+cp "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/agm-keyd.sh" "$HOME/.local/bin/agnostic-gaming-mode/agm-keyd.sh" && echo "Copied agm-keyd.sh -> $HOME/.local/bin/agnostic-gaming-mode/"
+INSTALLED_FILES+=("$HOME/.local/bin/agnostic-gaming-mode/agm-keyd.sh")
 
 # gamescope-display-modulation.sh
 cp "$CUR_DIR/files/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh" "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh" && echo "Copied gamescope-display-modulation.sh -> $HOME/.local/bin/agnostic-gaming-mode/"
@@ -676,33 +693,53 @@ for userdata_dir in valid_steam_dirs:
 		print(f"Applied Artwork to 'Exit Agnostic Gaming Mode' Shortcut for Steam ID: {user_id}")
 EOF
 
+# Confirm file permissions
+
+# agm.desktop
+sudo chmod 644 "$HOME/.config/autostart/agm.desktop"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.config/autostart/agm.desktop"
+
+# agm-keyd.sh
+sudo chmod 644 "$HOME/.local/bin/agnostic-gaming-mode/agm-keyd.sh"
+sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/agm-keyd.sh"
+
+# gamescope-display-modulation.service
 sudo chmod 644 "$HOME/.config/systemd/user/gamescope-display-modulation.service"
 sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.config/systemd/user/gamescope-display-modulation.service"
 
+# gamescope-display-modulation.sh
 sudo chmod 755 "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
 sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/gamescope-display-modulation.sh"
 
+# ScreenRecordingGamingMode.sh
 sudo chmod 755 "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
 sudo chown "$ACTUAL_USER":"$ACTUAL_USER" "$HOME/.local/bin/agnostic-gaming-mode/ScreenRecordingGamingMode.sh"
 
+# agnostic-gaming-mode-restart.service
 sudo chmod 644 /etc/systemd/system/agnostic-gaming-mode-restart.service
 sudo chown root:root /etc/systemd/system/agnostic-gaming-mode-restart.service
 
+# evsieve.sh
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/evsieve.sh
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/evsieve.sh
 
+# gamescope-session
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/gamescope-session
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/gamescope-session
 
+# restart.sh
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/restart.sh
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/restart.sh
 
+# steam-restart.sh
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/steam-restart.sh
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/steam-restart.sh
 
+# volume.sh
 sudo chmod 755 /usr/local/bin/agnostic-gaming-mode/volume.sh
 sudo chown root:root /usr/local/bin/agnostic-gaming-mode/volume.sh
 
+# agnostic-gaming-mode.desktop
 sudo chmod 644 /usr/share/wayland-sessions/agnostic-gaming-mode.desktop
 sudo chown root:root /usr/share/wayland-sessions/agnostic-gaming-mode.desktop
 

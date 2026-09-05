@@ -28,7 +28,7 @@ chmod 755 install-apt.sh
 **After Installation, Agnostic Gaming Mode will appear as a new session option on your log-in screen.**
 
 ### Important Notes:
-All features of AGM may not work on Stable Release Distributions (Old, Stable Packages) as some features rely on the latest versions of packages. This not affect the core functions of AGM but it is important to be aware of it.
+All features of AGM may not work on Stable Release Distributions (Old, Stable Packages) as some features rely on the latest versions of packages. This does not affect the core functions of AGM but it is important to be aware of it.
 
-If AGM ever freezes or gets in an unrecoverable state, press the keyboard shortcut "Meta (Windows) + Alt + Ctrl + Backspace" to restart AGM.
-**In some uncommon edge-case scenarios, it may take 1-2 minutes to restart after pressing the keyboard shortcut.**
+If AGM ever freezes or is in an unrecoverable state, press the keyboard shortcut "Meta (Windows) + Alt + Ctrl + Backspace" to restart AGM.
+**In some uncommon edge-case scenarios, it may take 1-2 minutes to completely restart after pressing the keyboard shortcut.**
