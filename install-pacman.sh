@@ -494,7 +494,7 @@ INSTALLED_FILES+=("/usr/share/wayland-sessions/agnostic-gaming-mode.desktop")
 # Prompt user with option to enable controller shortcuts for their keyboard
 while true; do
 	echo -e "\nWould you like to enable controller shortcuts on the Keyboard?\n\nThis changes:\nShift + Meta (Windows) -> Steam Button\nShift + Meta (Windows) + Alt -> Quick Access Menu\nShift + Escape -> B Button\n\nNote: Steam Menu and Quick Access Menu can still be accessed with Ctrl + 1/2 without it."
-	echo -e "\nType 'Y/y' to enable controller shortcuts.\nType 'N/n' to disable controller shortcuts."
+	echo -e "\nType 'Y/y' to enable controller shortcuts.\nType 'N/n' to not enable controller shortcuts."
 	read -r enable_shortcuts
 
 	case "$enable_shortcuts" in
